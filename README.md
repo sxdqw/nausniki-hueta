@@ -1,112 +1,98 @@
-# 🎧 Baseus/Дешевый-Bluetooth-Fix для Arch Linux (PipeWire)
+Markdown
 
-Решение двух проблем, вызванных кривой прошивкой дешевых Bluetooth-наушников (часто Baseus):
-1.  **Нестабильное подключение:** Наушники отваливаются через 2 секунды (проблема `Reason.Remote`).
-2.  **Низкое качество звука:** Система принудительно включает "унитазный" профиль **HSP/HFP** (режим гарнитуры).
+# Baseus/Cheap-Bluetooth-Fix for Arch Linux (PipeWire)
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE.md)
+
+A robust, step-by-step solution to two common problems caused by faulty firmware in inexpensive Bluetooth audio devices (often Baseus) on Linux systems using PipeWire.
 
 ---
 
-## Шаг 0: Предварительная настройка
+## 💡 The Problem
 
-### 1. Установите `git` и клонируйте репозиторий:
+Inexpensive audio devices with poor firmware (like Baseus headphones or 2.4GHz dongles) often fail on Linux where they work on Windows due to two main issues:
+1.  **Connection Instability (The "2-Second Disconnect"):** The device forcibly disconnects itself (`Reason.Remote`) because it cannot properly negotiate connection parameters during boot.
+2.  **Low Audio Quality ("The Toilet Sound"):** The system defaults to the low-quality **HSP/HFP** profile (headset mode) instead of high-quality **A2DP**.
+
+## ✅ The Solution
+
+This guide provides a two-part fix:
+1.  **Hardware Reset Script:** A systemd service to automatically reset the Bluetooth driver upon boot, stabilizing the connection.
+2.  **WirePlumber Config:** A Lua configuration file to permanently block the low-quality HSP/HFP profile.
+
+---
+
+## 🚀 Installation & Setup
+
+### Step 1: Clone the Repository
 ```bash
-# Установите git, если его нет
+# Install git if you don't have it
 sudo pacman -S git
 
-# Клонируйте репозиторий (замените URL на ваш)
-git clone [ВАШ_URL_РЕПОЗИТОРИЯ]
-cd [НАЗВАНИЕ_ПАПКИ_РЕПО]
+# Clone the repository (replace URL with yours)
+git clone [https://github.com/sxdqw/nausniki-hueta.git](https://github.com/sxdqw/nausniki-hueta.git)
+cd nausniki-hueta
 
-Шаг 1: Установка скрипта сброса (nausniki-hueta)
+Step 2: Install the Reset Script (nausniki-hueta)
 
-Этот скрипт выполняет "аппаратную" перезагрузку драйвера для стабильного подключения.
+This script forces a driver reload to resolve connection instability.
 
-1. Копирование скрипта
+    Copy the Script and Set Permissions:
+    Bash
 
-Bash
-
-# Создание стандартной папки для пользовательских скриптов
 mkdir -p ~/.local/bin
-
-# Копирование скрипта и установка прав
 cp nausniki-hueta ~/.local/bin/
 chmod +x ~/.local/bin/nausniki-hueta
 
-2. Настройка NOPASSWD (Запуск без пароля)
-
-Чтобы не вводить пароль при каждом сбросе Bluetooth, настройте sudoers.
-
-    ВНИМАНИЕ: Обязательно замените user на свой логин ($(whoami)).
-
+Configure NOPASSWD (Run Without Password): This step prevents the system from asking for your password when running the script.
 Bash
 
-# Добавление правила в файл sudoers.d
-echo "$(whoami) ALL=(ALL) NOPASSWD: /usr/bin/modprobe -r btusb, /usr/bin/modprobe btusb, /usr/bin/systemctl restart bluetooth.service" | sudo tee /etc/sudoers.d/99-bluetooth-fix
+    # Add the rule to the sudoers.d file
+    echo "$(whoami) ALL=(ALL) NOPASSWD: /usr/bin/modprobe -r btusb, /usr/bin/modprobe btusb, /usr/bin/systemctl restart bluetooth.service" | sudo tee /etc/sudoers.d/99-bluetooth-fix
 
-# Установка безопасных прав
-sudo chmod 440 /etc/sudoers.d/99-bluetooth-fix
+    # Set secure permissions
+    sudo chmod 440 /etc/sudoers.d/99-bluetooth-fix
 
-Шаг 2: Блокировка режима Гарнитуры (HSP/HFP)
+Step 3: Block Headset Mode (HSP/HFP)
 
-Это устраняет проблему "звука из унитаза".
+This prevents the "toilet sound" by forcing high-quality A2DP.
 
-1. Копирование LUA-конфига
+    Copy the LUA Config (56-a2dp-only.lua):
+    Bash
 
-Bash
-
-# Создание папки для конфигов WirePlumber
 mkdir -p ~/.config/wireplumber/bluetooth.lua.d
-
-# Копирование конфига
 cp 56-a2dp-only.lua ~/.config/wireplumber/bluetooth.lua.d/
 
-2. Перезапуск PipeWire
-
+Restart PipeWire Manager:
 Bash
 
-systemctl --user restart wireplumber.service
+    systemctl --user restart wireplumber.service
 
-Шаг 3: Настройка автозапуска скрипта (Опционально)
+Step 4: Setup Autostart (Recommended)
 
-Этот шаг автоматизирует сброс драйвера через 10 секунд после загрузки системы.
+Automate the driver reset 10 seconds after your desktop loads.
 
-1. Копирование юнит-файла
+    Copy the Systemd Unit File:
+    Bash
 
-Bash
-
-# Создание папки для пользовательских сервисов
 mkdir -p ~/.config/systemd/user
 
-# Копирование юнит-файла (!!! проверьте путь /home/user !!!)
+# !!! IMPORTANT: Verify the path in bluetooth-fix.service is correct !!!
 cp bluetooth-fix.service ~/.config/systemd/user/
 
-2. Активация сервиса
-
+Enable the Service:
 Bash
 
-systemctl --user daemon-reload
-systemctl --user enable bluetooth-fix.service
+    systemctl --user daemon-reload
+    systemctl --user enable bluetooth-fix.service
 
-3. Готово
+Step 5: Final Step
 
-Перезагрузите компьютер. Скрипт запустится сам, и наушники будут работать в A2DP.
+Reboot your computer. The fix is now permanent.
 Bash
 
 reboot
 
+📄 License
 
----
-
-## 💻 Часть 3: Загрузка на GitHub
-
-Теперь, когда все файлы созданы, загрузи их на GitHub (предполагается, что у тебя уже есть аккаунт и создан пустой репозиторий).
-
-```bash
-# Если ты уже в папке ~/poe-bluetooth-fix
-git init
-git add .
-git commit -m "Initial commit: Baseus bluetooth fix for Arch Linux (PipeWire)"
-git branch -M main
-# ЗАМЕНИТЕ URL НИЖЕ НА СВОЙ!
-git remote add origin [ВАШ_URL_РЕПОЗИТОРИЯ] 
-git push -u origin main
+This project is licensed under the MIT License. See the LICENSE.md file for details.
